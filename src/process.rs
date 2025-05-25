@@ -17,9 +17,7 @@ where
     for result in csv.reader.records() {
         let record = result?;
 
-        // fill the evaluation context with record values
-        //let mut context = HashMapContext::<DefaultNumericTypes>::new();
-
+        // setup context with custom functions
         let mut context: HashMapContext<DefaultNumericTypes> = context_map! {
             "string_contains" => Function::new(|argument| {
                 let arguments = argument.as_tuple()?;
@@ -33,6 +31,7 @@ where
         }
         .unwrap(); // Do proper error handling here
 
+        // fill the evaluation context with record values
         record.iter().enumerate().for_each(|(idx, s)| {
             // try to convert as number if possible, because operators +/- ... don't work on strings
             let value: Value<_> = if let Ok(f) = s.parse::<f64>() {
@@ -44,10 +43,10 @@ where
             context.set_value(csv.headers[idx].clone(), value).unwrap();
         });
 
-        // apply rules on values
+        // apply each rule on values
         rules.iter().for_each(|rule| {
             if rule.compiled().eval_with_context(&context) == Ok(Value::from(true)) {
-                // store matching results
+                // store matching rules in results
                 results.push(Match {
                     csv: record.iter().map(|s| s.to_owned()).collect(),
                     rule: rule.rule().to_owned(),
