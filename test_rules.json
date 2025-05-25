@@ -4,5 +4,9 @@
     },
     {
         "rule": "(A + B) == C"
+    },
+    {
+        "rule": "string_contains(B, \"beta\")"
     }
+    
 ]

@@ -18,7 +18,21 @@ where
         let record = result?;
 
         // fill the evaluation context with record values
-        let mut context = HashMapContext::<DefaultNumericTypes>::new();
+        //let mut context = HashMapContext::<DefaultNumericTypes>::new();
+
+        let mut context: HashMapContext<DefaultNumericTypes> = context_map! {
+            "string_contains" => Function::new(|argument| {
+                let arguments = argument.as_tuple()?;
+
+                if let (Value::String(a), Value::String(b)) = (&arguments[0], &arguments[1]) {
+                    Ok(Value::Boolean(a.contains(b)))
+                } else {
+                    Ok(Value::Boolean(false))
+                }
+            }),
+        }
+        .unwrap(); // Do proper error handling here
+
         record.iter().enumerate().for_each(|(idx, s)| {
             // try to convert as number if possible, because operators +/- ... don't work on strings
             let value: Value<_> = if let Ok(f) = s.parse::<f64>() {
