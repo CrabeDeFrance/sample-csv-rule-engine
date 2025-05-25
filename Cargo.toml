@@ -1,0 +1,24 @@
+[package]
+name = "csv_ruler"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+csv = "*"
+evalexpr = "*"
+clap = { version = "*", features = [ "derive"] }
+
+serde = { version = "*", features = [ "derive"] }
+serde_json = "*"
+
+[dev-dependencies]
+criterion = "0.6"
+rand = "0.9"
+
+[[bin]]
+path = "bin/main.rs"
+name = "main"
+
+[[bench]]
+name = "rules"
+harness = false
