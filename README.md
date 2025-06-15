@@ -9,7 +9,7 @@ See test_data.csv & test_rules.json for sample data.
 ## test
 
 ```bash
-cargo run -- -c ./test_data.csv -r ./test_rules.json
+cargo run -- -i ./test_data.csv -r ./test_rules.json
 ```
 
 ## perf
