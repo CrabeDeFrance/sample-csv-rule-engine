@@ -7,7 +7,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
                 csv_ruler::csv::read_from_str("A;B;C\n1;2;3\n1;4;5\nalpha;beta;alpha").unwrap();
             let rules = csv_ruler::rule::read_from_str("[{\"rule\": \"A == C\"}]").unwrap();
 
-            let _ = csv_ruler::process::process_file(csv, rules);
+            let _ = csv_ruler::process::process_file(csv, &rules);
         });
     });
 
@@ -20,7 +20,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
             )
             .unwrap();
 
-            let _ = csv_ruler::process::process_file(csv, rules);
+            let _ = csv_ruler::process::process_file(csv, &rules);
         });
     });
 }

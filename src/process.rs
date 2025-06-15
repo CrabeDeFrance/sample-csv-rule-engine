@@ -8,7 +8,7 @@ pub struct Match {
     pub rule: String,
 }
 
-pub fn process_file<T>(mut csv: Csv<T>, rules: Vec<CompiledRule>) -> Result<Vec<Match>>
+pub fn process_file<T>(mut csv: Csv<T>, rules: &[CompiledRule]) -> Result<Vec<Match>>
 where
     T: std::io::Read,
 {
