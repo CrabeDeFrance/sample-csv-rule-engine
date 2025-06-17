@@ -16,10 +16,6 @@ struct Args {
     #[arg(short, long)]
     input: PathBuf,
 
-    /// File to analyze
-    #[arg(short, long)]
-    work: Option<PathBuf>,
-
     /// verification rules
     #[arg(short, long)]
     rules: PathBuf,
@@ -33,22 +29,27 @@ struct Args {
     period: Option<u64>,
 }
 
+struct File {
+    path: PathBuf,
+    content: String,
+}
+
 fn process_thread(
-    r: crossbeam_channel::Receiver<Option<PathBuf>>,
+    r: crossbeam_channel::Receiver<Option<File>>,
     rules: Vec<CompiledRule>,
     send_report: crossbeam_channel::Sender<Option<Vec<Match>>>,
     delete_file_after_processing: bool,
 ) {
-    while let Ok(Some(path)) = r.recv() {
-        let csv = csv_ruler::csv::read_from_path(&path).expect("Can't open csv file");
+    while let Ok(Some(file)) = r.recv() {
+        let csv = csv_ruler::csv::read_from_str(&file.content).expect("Can't open csv file");
 
         let results = process_file(csv, &rules).expect("Can't process file");
 
         let _ = send_report.send(Some(results));
 
         if delete_file_after_processing {
-            if let Err(e) = std::fs::remove_file(&path) {
-                eprintln!("Cannot delete file {path:?}: {e}");
+            if let Err(e) = std::fs::remove_file(&file.path) {
+                eprintln!("Cannot delete file {:?}: {e}", file.path);
             }
         }
     }
@@ -57,50 +58,39 @@ fn process_thread(
     let _ = send_report.send(None);
 }
 
-fn send_end_message_to_threads(threads: usize, queue: &Sender<Option<PathBuf>>) {
+fn send_end_message_to_threads(threads: usize, queue: &Sender<Option<File>>) {
     (0..threads).for_each(|_| {
         // stop threads (1 message per thread)
         let _ = queue.send(None);
     });
 }
 
-fn read_dir(
-    input: &Path,
-    work: Option<&PathBuf>,
-    send_file: &Sender<Option<PathBuf>>,
-) -> std::io::Result<bool> {
+fn read_dir(input: &Path, send_file: &Sender<Option<File>>) -> std::io::Result<bool> {
     let mut ret = false;
     for entry in std::fs::read_dir(input)? {
-        let mut path = entry?.path();
-        // maybe move in work
-        if let Some(work) = work {
-            let filename = path.file_name().unwrap().to_string_lossy().to_string();
-            let mut work_path = work.clone();
-            work_path.push(&filename);
-            if let Err(e) = std::fs::rename(&path, &work_path) {
-                panic!("can't rename file {filename} : {e}");
-            } else {
-                path = work_path;
-            }
+        let path = entry?.path();
+
+        // ignore hidden files
+        if path.starts_with(".") {
+            continue;
         }
-        //let moved_path =
-        let _ = send_file.send(Some(path));
+
+        // read it
+        let content = std::fs::read_to_string(&path)?;
+
+        // send it
+        let _ = send_file.send(Some(File { path, content }));
         // a file was sent
         ret = true;
     }
     Ok(ret)
 }
 
-fn watch_thread(
-    path: PathBuf,
-    work: Option<&PathBuf>,
-    send_file: Sender<Option<PathBuf>>,
-    period: u64,
-) {
+fn watch_thread(path: PathBuf, send_file: Sender<Option<File>>, period: u64) {
     // send many files
     loop {
         // watch dir
-        match read_dir(&path, work, &send_file) {
+        match read_dir(&path, &send_file) {
             Ok(true) => (),
             Ok(false) => std::thread::sleep(Duration::from_millis(period)),
             Err(e) => panic!("Can't read dir: {e}"),
@@ -140,21 +130,23 @@ fn main() {
 
     if args.input.is_file() {
         // send one file
-        let _ = send_file.send(Some(args.input));
+        let content = std::fs::read_to_string(&args.input)
+            .unwrap_or_else(|_| panic!("Cannot read file: {:?}", args.input));
+        let _ = send_file.send(Some(File {
+            path: args.input,
+            content,
+        }));
         // end processing
         send_end_message_to_threads(args.threads, &send_file);
     } else if args.input.is_dir() {
         if let Some(period) = args.period {
             let send_file = send_file.clone();
-            if args.work.is_none() {
-                panic!("workdir is mandatory in watch mode");
-            }
             std::thread::spawn(move || {
-                watch_thread(args.input, args.work.as_ref(), send_file, period);
+                watch_thread(args.input, send_file, period);
             });
         } else {
             // do not wait for more file
-            if let Err(e) = read_dir(&args.input, None, &send_file) {
+            if let Err(e) = read_dir(&args.input, &send_file) {
                 panic!("Can't read dir: {e}");
             }
             // end processing

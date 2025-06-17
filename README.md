@@ -8,9 +8,18 @@ See test_data.csv & test_rules.json for sample data.
 
 ## test
 
+Simple usage, file or directory
+
 ```bash
 cargo run -- -i ./test_data.csv -r ./test_rules.json
 ```
+
+Watch a directory
+
+```bash
+cargo run -- -i ./test_data_dir -r ./test_rules.json -p 10
+```
+
 
 ## perf
 
